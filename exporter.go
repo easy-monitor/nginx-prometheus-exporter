@@ -442,7 +442,8 @@ func registerCollector(opt opt, registry *prometheus.Registry) {
 	if strings.HasPrefix(opt.scrapeURI, "unix:") {
 		socketPath, requestPath, err := parseUnixSocketAddress(opt.scrapeURI)
 		if err != nil {
-			log.Fatalf("Parsing unix domain socket scrape address %s failed: %v", *scrapeURI, err)
+			e := fmt.Sprintf("Parsing unix domain socket scrape address %s failed: %v", *scrapeURI, err)
+			panic(e)
 		}
 
 		opt.transport.DialContext = func(_ context.Context, _, _ string) (net.Conn, error) {
@@ -466,7 +467,8 @@ func registerCollector(opt opt, registry *prometheus.Registry) {
 			return plusclient.NewNginxClient(httpClient, opt.scrapeURI)
 		}, *nginxRetries, nginxRetryInterval.Duration)
 		if err != nil {
-			log.Fatalf("Could not create Nginx Plus Client: %v", err)
+			e := fmt.Sprintf("Could not create Nginx Plus Client: %v", err)
+			panic(e)
 		}
 		variableLabelNames := collector.NewVariableLabelNames(nil, nil, nil, nil, nil, nil)
 		registry.MustRegister(collector.NewNginxPlusCollector(plusClient.(*plusclient.NginxClient), "nginxplus", variableLabelNames, constLabels.labels))
@@ -475,7 +477,8 @@ func registerCollector(opt opt, registry *prometheus.Registry) {
 			return client.NewNginxClient(httpClient, opt.scrapeURI)
 		}, *nginxRetries, nginxRetryInterval.Duration)
 		if err != nil {
-			log.Fatalf("Could not create Nginx Client: %v", err)
+			e := fmt.Sprintf("Could not create Nginx Client: %v", err)
+			panic(e)
 		}
 		registry.MustRegister(collector.NewNginxCollector(ossClient.(*client.NginxClient), "nginx", constLabels.labels))
 	}
@@ -483,6 +486,12 @@ func registerCollector(opt opt, registry *prometheus.Registry) {
 
 func newScrapeHandle(opt opt) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if r := recover(); r != nil {
+				err := fmt.Sprintf("%v", r)
+				http.Error(w, err, http.StatusInternalServerError)
+			}
+		}()
 		target := r.URL.Query().Get("target")
 		opt.scrapeURI = target
 		registry := prometheus.NewRegistry()
