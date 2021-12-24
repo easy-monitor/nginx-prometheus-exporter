@@ -442,7 +442,7 @@ func registerCollector(opt opt, registry *prometheus.Registry) {
 	if strings.HasPrefix(opt.scrapeURI, "unix:") {
 		socketPath, requestPath, err := parseUnixSocketAddress(opt.scrapeURI)
 		if err != nil {
-			log.Fatalf("Parsing unix domain socket scrape address %s failed: %v", *scrapeURI, err)
+			return
 		}
 
 		opt.transport.DialContext = func(_ context.Context, _, _ string) (net.Conn, error) {
@@ -466,7 +466,7 @@ func registerCollector(opt opt, registry *prometheus.Registry) {
 			return plusclient.NewNginxClient(httpClient, opt.scrapeURI)
 		}, *nginxRetries, nginxRetryInterval.Duration)
 		if err != nil {
-			log.Fatalf("Could not create Nginx Plus Client: %v", err)
+			return
 		}
 		variableLabelNames := collector.NewVariableLabelNames(nil, nil, nil, nil, nil, nil)
 		registry.MustRegister(collector.NewNginxPlusCollector(plusClient.(*plusclient.NginxClient), "nginxplus", variableLabelNames, constLabels.labels))
@@ -475,7 +475,7 @@ func registerCollector(opt opt, registry *prometheus.Registry) {
 			return client.NewNginxClient(httpClient, opt.scrapeURI)
 		}, *nginxRetries, nginxRetryInterval.Duration)
 		if err != nil {
-			log.Fatalf("Could not create Nginx Client: %v", err)
+			return
 		}
 		registry.MustRegister(collector.NewNginxCollector(ossClient.(*client.NginxClient), "nginx", constLabels.labels))
 	}
